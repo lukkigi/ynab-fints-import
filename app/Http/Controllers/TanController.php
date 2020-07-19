@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Constants\AppConstants;
 use App\Constants\ErrorConstants;
 use App\Helpers\MessageHelper;
+use App\Services\SessionService;
 use Fhp\Action\GetSEPAAccounts;
 use Fhp\Action\GetStatementOfAccount;
 use Fhp\BaseAction;
@@ -17,7 +18,6 @@ use Fhp\Protocol\ServerException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Redirect;
-use Illuminate\Support\Facades\Session;
 use Illuminate\View\View;
 
 class TanController
@@ -30,18 +30,18 @@ class TanController
      */
     public function chooseTanMedium()
     {
-        if (!Session::exists(AppConstants::$SESSION_AVAILABLE_TAN_MEDIA)) {
+        if (!SessionService::isAvailableTanMediaPresent()) {
             return MessageHelper::redirectToErrorMessage(ErrorConstants::$SESSION_NO_AVAILABLE_TAN_MEDIA);
         }
 
-        $currentAccountConfiguration = Session::get(AppConstants::$SESSION_CURRENT_ACCOUNT);
+        $currentAccountConfiguration = SessionService::getCurrentAccount();
 
         /** @var TanMedium[] $tanMediaList */
-        $tanMediaList = unserialize(Session::get(AppConstants::$SESSION_AVAILABLE_TAN_MEDIA));
+        $tanMediaList = SessionService::getAvailableTanMedia();
 
         return view('tanMedia', [
             'availableTanMedia' => $tanMediaList,
-            'bankName' => $currentAccountConfiguration['account_name']
+            'bankName' => $currentAccountConfiguration[AppConstants::$CONFIG_ACCOUNT_NAME]
         ]);
     }
 
@@ -54,14 +54,14 @@ class TanController
             return MessageHelper::redirectToErrorMessage(ErrorConstants::$REQUEST_MISSING_TAN_MEDIUM);
         }
 
-        if (!Session::exists(AppConstants::$SESSION_AVAILABLE_TAN_MEDIA)) {
+        if (!SessionService::isAvailableTanMediaPresent()) {
             return MessageHelper::redirectToErrorMessage(ErrorConstants::$SESSION_NO_AVAILABLE_TAN_MEDIA);
         }
 
         /** @var TanMedium[] $tanMediaList */
-        $tanMediaList = unserialize(Session::get(AppConstants::$SESSION_AVAILABLE_TAN_MEDIA));
+        $tanMediaList = SessionService::getAvailableTanMedia();
 
-        Session::put(AppConstants::$SESSION_TAN_MEDIUM, serialize($tanMediaList[$request->input(self::$TAN_MEDIUM)]));
+        SessionService::putTanMedium($tanMediaList[$request->input(self::$TAN_MEDIUM)]);
 
         return Redirect::route('startLogin');
     }
@@ -71,14 +71,14 @@ class TanController
      */
     public function handleTanRequest()
     {
-        if (!Session::exists(AppConstants::$SESSION_TAN_ACTION)) {
+        if (!SessionService::isTanActionPresent()) {
             return MessageHelper::redirectToErrorMessage(ErrorConstants::$SESSION_NO_TAN_ACTION);
         }
 
-        $currentAccountConfiguration = Session::get(AppConstants::$SESSION_CURRENT_ACCOUNT);
+        $currentAccountConfiguration = SessionService::getCurrentAccount();
 
         /** @var BaseAction $finTsTanAction */
-        $finTsTanAction = unserialize(Session::get(AppConstants::$SESSION_TAN_ACTION));
+        $finTsTanAction = SessionService::getTanAction();
 
         if (!$finTsTanAction->needsTan()) {
             return MessageHelper::redirectToErrorMessage(ErrorConstants::$FINTS_TAN_ACTION_NEEDS_NO_TAN);
@@ -113,23 +113,23 @@ class TanController
             return MessageHelper::redirectToErrorMessage(ErrorConstants::$REQUEST_MISSING_TAN_CODE);
         }
 
-        if (!Session::exists('finTsTanAction')) {
+        if (SessionService::isTanActionPresent()) {
             return MessageHelper::redirectToErrorMessage(ErrorConstants::$SESSION_NO_TAN_ACTION);
         }
 
         /** @var BaseAction $finTsTanAction */
-        $finTsTanAction = unserialize(Session::get(AppConstants::$SESSION_TAN_ACTION));
+        $finTsTanAction = SessionService::getTanAction();
 
         if (!$finTsTanAction->needsTan()) {
             return MessageHelper::redirectToErrorMessage(ErrorConstants::$FINTS_TAN_ACTION_NEEDS_NO_TAN);
         }
 
-        if (!Session::exists(AppConstants::$SESSION_FINTS_OBJECT)) {
+        if (!SessionService::isFinTsObjectPresent()) {
             return MessageHelper::redirectToErrorMessage(ErrorConstants::$SESSION_NO_FINTS_OBJECT);
         }
 
         /** @var FinTsNew $finTsObject */
-        $finTsObject = unserialize(Session::get(AppConstants::$SESSION_FINTS_OBJECT));
+        $finTsObject = SessionService::getFinTsObject();
 
         try {
             $finTsObject->submitTan($finTsTanAction, $request->input(self::$TAN_CODE));

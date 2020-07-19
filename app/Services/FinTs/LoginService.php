@@ -6,6 +6,7 @@ use App\Constants\AppConstants;
 use App\Constants\ErrorConstants;
 use App\Helpers\FinTsHelper;
 use App\Helpers\MessageHelper;
+use App\Services\SessionService;
 use Fhp\CurlException;
 use Fhp\FinTsNew;
 use Fhp\Model\NoPsd2TanMode;
@@ -15,7 +16,6 @@ use Fhp\Protocol\ServerException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Redirect;
-use Illuminate\Support\Facades\Session;
 
 class LoginService
 {
@@ -33,7 +33,7 @@ class LoginService
             return MessageHelper::redirectToErrorMessage(ErrorConstants::$CHECK_PRODUCT_KEYS);
         }
 
-        if (Session::exists(AppConstants::$SESSION_TAN_MEDIUM)) {
+        if (SessionService::isTanMediumPresent()) {
             return self::setUpTanAndLogin();
         }
 
@@ -45,14 +45,16 @@ class LoginService
         if ($accountConfiguration[AppConstants::$CONFIG_TAN_MODE] == '-1') {
             $tanMode = new NoPsd2TanMode();
         } else {
+            // TODO: check value first
+
             $tanMode = $finTsObject->getTanModes()[intval($accountConfiguration[AppConstants::$CONFIG_TAN_MODE])];
         }
 
-        Session::put(AppConstants::$SESSION_TAN_MODE, serialize($tanMode));
+        SessionService::putTanMode($tanMode);
 
         if ($tanMode->needsTanMedium()) {
-            Session::put(AppConstants::$SESSION_FINTS_OBJECT, serialize($finTsObject));
-            Session::put(AppConstants::$SESSION_AVAILABLE_TAN_MEDIA, serialize($finTsObject->getTanMedia($tanMode)));
+            SessionService::putFinTsObject($finTsObject);
+            SessionService::putAvailableTanMedia($finTsObject->getTanMedia($tanMode));
 
             return Redirect::route(AppConstants::$ROUTE_CHOOSE_TAN_MEDIUM);
         }
@@ -64,25 +66,25 @@ class LoginService
      * @return RedirectResponse
      */
     public static function setUpTanAndLogin() {
-        if (!Session::exists(AppConstants::$SESSION_FINTS_OBJECT)) {
+        $tanMedium = null;
+
+        /** @var FinTsNew $finTsObject */
+        $finTsObject = SessionService::getFinTsObject();
+
+        if ($finTsObject == null) {
             return MessageHelper::redirectToErrorMessage(ErrorConstants::$SESSION_NO_FINTS_OBJECT);
         }
 
-        if (!Session::exists(AppConstants::$SESSION_TAN_MODE)) {
+        /** @var TanMode $tanMode */
+        $tanMode = SessionService::getTanMode();
+
+        if ($tanMode == null) {
             return MessageHelper::redirectToErrorMessage(ErrorConstants::$SESSION_NO_TAN_MODE);
         }
 
-        /** @var FinTsNew $finTsObject */
-        $finTsObject = unserialize(Session::get(AppConstants::$SESSION_FINTS_OBJECT));
-
-        /** @var TanMode $tanMode */
-        $tanMode = unserialize(Session::get(AppConstants::$SESSION_TAN_MODE));
-
-        $tanMedium = null;
-
-        if (Session::exists(AppConstants::$SESSION_TAN_MEDIUM)) {
+        if (SessionService::isTanMediumPresent()) {
             /** @var TanMedium $tanMedium */
-            $tanMedium = unserialize(Session::get(AppConstants::$SESSION_TAN_MEDIUM));
+            $tanMedium = SessionService::getTanMedium();
         }
 
         $finTsObject->selectTanMode($tanMode, $tanMedium);
@@ -93,10 +95,10 @@ class LoginService
             return MessageHelper::redirectToErrorMessage(ErrorConstants::$FINTS_BANK_COMMUNICATION);
         }
 
-        Session::put(AppConstants::$SESSION_FINTS_OBJECT, serialize($finTsObject));
+        SessionService::putFinTsObject($finTsObject);
 
         if ($loginRequest->needsTan()) {
-            Session::put(AppConstants::$SESSION_TAN_ACTION, serialize($loginRequest));
+            SessionService::putTanAction($loginRequest);
 
             return Redirect::route(AppConstants::$ROUTE_ENTER_TAN);
         }

@@ -7,6 +7,7 @@ use App\Constants\ErrorConstants;
 use App\Helpers\MessageHelper;
 use App\Services\FinTs\FinTsService;
 use App\Services\FinTs\LoginService;
+use App\Services\SessionService;
 use Exception;
 use Fhp\Action\GetSEPAAccounts;
 use Fhp\Action\GetStatementOfAccount;
@@ -23,11 +24,11 @@ class FinTsController extends Controller
      */
     public function startLogin()
     {
-        if (!Session::exists(AppConstants::$SESSION_CURRENT_ACCOUNT)) {
+        if (!SessionService::isCurrentAccountPresent()) {
             return MessageHelper::redirectToErrorMessage(ErrorConstants::$SESSION_ACCOUNT_CONFIGURATION);
         }
 
-        $currentAccountConfiguration = Session::get(AppConstants::$SESSION_CURRENT_ACCOUNT);
+        $currentAccountConfiguration = SessionService::getCurrentAccount();
 
         if ($currentAccountConfiguration == null || empty($currentAccountConfiguration)) {
             return MessageHelper::redirectToErrorMessage(ErrorConstants::$SESSION_ACCOUNT_CONFIGURATION);
@@ -42,18 +43,18 @@ class FinTsController extends Controller
      */
     public function fetchAccounts()
     {
-        if (!Session::exists(AppConstants::$SESSION_CURRENT_ACCOUNT)) {
+        if (!SessionService::isCurrentAccountPresent()) {
             return MessageHelper::redirectToErrorMessage(ErrorConstants::$SESSION_ACCOUNT_CONFIGURATION);
         }
 
-        $currentAccountConfiguration = Session::get(AppConstants::$SESSION_CURRENT_ACCOUNT);
+        $currentAccountConfiguration = SessionService::getCurrentAccount();
 
         if ($currentAccountConfiguration == null || empty($currentAccountConfiguration)) {
             return MessageHelper::redirectToErrorMessage(ErrorConstants::$SESSION_ACCOUNT_CONFIGURATION);
         }
 
-        if (Session::exists(AppConstants::$SESSION_TAN_ACTION)) {
-            $finTsLastAction = unserialize(Session::get(AppConstants::$SESSION_TAN_ACTION));
+        if (SessionService::isTanActionPresent()) {
+            $finTsLastAction = SessionService::getTanAction();
 
             if ($finTsLastAction instanceof GetSEPAAccounts) {
                 return FinTsService::fetchAccounts($currentAccountConfiguration[AppConstants::$CONFIG_BANK_IBAN]);
@@ -71,30 +72,29 @@ class FinTsController extends Controller
 
     /**
      * @return RedirectResponse
-     * @throws CurlException
      * @throws ServerException
      */
     public function fetchTransactions()
     {
-        if (!Session::exists(AppConstants::$SESSION_CURRENT_ACCOUNT)) {
+        if (!SessionService::isCurrentAccountPresent()) {
             return MessageHelper::redirectToErrorMessage(ErrorConstants::$SESSION_ACCOUNT_CONFIGURATION);
         }
 
-        $currentAccountConfiguration = Session::get(AppConstants::$SESSION_CURRENT_ACCOUNT);
+        $currentAccountConfiguration = SessionService::getCurrentAccount();
 
         if ($currentAccountConfiguration == null || empty($currentAccountConfiguration)) {
             return MessageHelper::redirectToErrorMessage(ErrorConstants::$SESSION_ACCOUNT_CONFIGURATION);
         }
 
-        if (!Session::exists(AppConstants::$SESSION_SEPA_ACCOUNT)) {
+        if (!SessionService::isSepaAccountPresent()) {
             return MessageHelper::redirectToErrorMessage(ErrorConstants::$SESSION_NO_SEPA_ACCOUNT);
         }
 
         /** @var SEPAAccount $sepaAccount */
-        $sepaAccount = unserialize(Session::get(AppConstants::$SESSION_SEPA_ACCOUNT));
+        $sepaAccount = SessionService::getSepaAccount();
 
-        if (Session::exists(AppConstants::$SESSION_TAN_ACTION)) {
-            $finTsLastAction = Session::get(AppConstants::$SESSION_TAN_ACTION);
+        if (SessionService::isTanActionPresent()) {
+            $finTsLastAction = SessionService::getTanAction();
 
             if ($finTsLastAction instanceof GetStatementOfAccount) {
                 return FinTsService::fetchTransactions();
