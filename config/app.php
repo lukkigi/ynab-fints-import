@@ -165,7 +165,6 @@ return [
         /*
          * Package Service Providers...
          */
-        Barryvdh\Debugbar\ServiceProvider::class,
 
         /*
          * Application Service Providers...
@@ -227,8 +226,7 @@ return [
         'URL' => Illuminate\Support\Facades\URL::class,
         'Validator' => Illuminate\Support\Facades\Validator::class,
         'View' => Illuminate\Support\Facades\View::class,
-        'Yaml' => Symfony\Component\Yaml\Yaml::class,
-        'Debugbar' => Barryvdh\Debugbar\Facade::class
+        'Yaml' => Symfony\Component\Yaml\Yaml::class
     ],
 
 ];
