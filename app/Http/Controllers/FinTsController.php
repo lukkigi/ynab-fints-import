@@ -21,6 +21,7 @@ class FinTsController extends Controller
 {
     /**
      * @return RedirectResponse
+     * @throws Exception
      */
     public function startLogin()
     {

@@ -134,7 +134,7 @@ class TanController
         try {
             $finTsObject->submitTan($finTsTanAction, $request->input(self::$TAN_CODE));
         } catch (CurlException | ServerException $exception) {
-            return MessageHelper::redirectToErrorMessage(ErrorConstants::$FINTS_BANK_COMMUNICATION);
+            return MessageHelper::redirectToErrorMessage('submitTan: ' . ErrorConstants::$FINTS_BANK_COMMUNICATION);
         }
 
         if ($finTsTanAction instanceof DialogInitialization) {
@@ -145,6 +145,6 @@ class TanController
             return Redirect::route(AppConstants::$ROUTE_FETCH_TRANSACTIONS);
         }
 
-        return MessageHelper::redirectToErrorMessage(ErrorConstants::$FINTS_BANK_COMMUNICATION);
+        return MessageHelper::redirectToErrorMessage('submitTan (no type): ' . ErrorConstants::$FINTS_BANK_COMMUNICATION);
     }
 }

@@ -47,7 +47,7 @@ class FinTsService
         try {
             $authenticatedFinTsObject->execute($getSepaAccountsAction);
         } catch (CurlException | ServerException $e) {
-            return MessageHelper::redirectToErrorMessage(ErrorConstants::$FINTS_BANK_COMMUNICATION);
+            return MessageHelper::redirectToErrorMessage('setupFetchAccounts: ' . ErrorConstants::$FINTS_BANK_COMMUNICATION);
         }
 
         SessionService::putFinTsObject($authenticatedFinTsObject);
@@ -84,11 +84,11 @@ class FinTsService
         SessionService::removeTanAction();
 
         if ($getSepaAccountsAction == null) {
-            return MessageHelper::redirectToErrorMessage(ErrorConstants::$FINTS_BANK_COMMUNICATION);
+            return MessageHelper::redirectToErrorMessage('fetchAccounts: ' . ErrorConstants::$FINTS_BANK_COMMUNICATION);
         }
 
         if (!$getSepaAccountsAction->isSuccess()) {
-            return MessageHelper::redirectToErrorMessage(ErrorConstants::$FINTS_BANK_COMMUNICATION);
+            return MessageHelper::redirectToErrorMessage('fetchAccounts (no success): ' . ErrorConstants::$FINTS_BANK_COMMUNICATION);
         }
 
         $sepaAccounts = $getSepaAccountsAction->getAccounts();
@@ -132,7 +132,7 @@ class FinTsService
         try {
             $authenticatedFinTsObject->execute($getStatementAction);
         } catch (CurlException | ServerException $e) {
-            return MessageHelper::redirectToErrorMessage(ErrorConstants::$FINTS_BANK_COMMUNICATION);
+            return MessageHelper::redirectToErrorMessage('setupFetchTransactions: ' . ErrorConstants::$FINTS_BANK_COMMUNICATION);
         }
 
         SessionService::putFinTsObject($authenticatedFinTsObject);
@@ -168,7 +168,7 @@ class FinTsService
         SessionService::removeTanAction();
 
         if ($getStatementAction == null || !$getStatementAction->isSuccess()) {
-            return MessageHelper::redirectToErrorMessage(ErrorConstants::$FINTS_BANK_COMMUNICATION);
+            return MessageHelper::redirectToErrorMessage('fetchTransactions: ' . ErrorConstants::$FINTS_BANK_COMMUNICATION);
         }
 
         $statementOfAccount = $getStatementAction->getStatement();
