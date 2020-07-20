@@ -54,9 +54,8 @@ class ImportController extends Controller
         $ynabTransactions = YnabHelper::buildTransactionsFromAccountStatements($currentConfigurationAccount[AppConstants::$CONFIG_ACCOUNT_ID], $transactions, $ynabPayees);
         $createTransactionsResponse = $ynabApiService->createTransactions($ynabTransactions);
 
-        // TODO: check for other status codes
-
-        if ($createTransactionsResponse->getStatusCode() == 201) {
+        // 201 = transactions created, 409 = no new transactions found
+        if ($createTransactionsResponse->getStatusCode() == 201 || $createTransactionsResponse->getStatusCode() == 409) {
             return MessageHelper::redirectToSuccessMessage();
         }
 
