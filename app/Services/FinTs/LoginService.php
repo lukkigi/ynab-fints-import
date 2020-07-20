@@ -51,9 +51,9 @@ class LoginService
         }
 
         SessionService::putTanMode($tanMode);
+        SessionService::putFinTsObject($finTsObject);
 
         if ($tanMode->needsTanMedium()) {
-            SessionService::putFinTsObject($finTsObject);
             SessionService::putAvailableTanMedia($finTsObject->getTanMedia($tanMode));
 
             return Redirect::route(AppConstants::$ROUTE_CHOOSE_TAN_MEDIUM);
@@ -92,7 +92,7 @@ class LoginService
         try {
             $loginRequest = $finTsObject->login();
         } catch (CurlException | ServerException $exception) {
-            return MessageHelper::redirectToErrorMessage(ErrorConstants::$FINTS_BANK_COMMUNICATION);
+            return MessageHelper::redirectToErrorMessage('login: ' . ErrorConstants::$FINTS_BANK_COMMUNICATION . ': ' . $exception->getMessage());
         }
 
         SessionService::putFinTsObject($finTsObject);
