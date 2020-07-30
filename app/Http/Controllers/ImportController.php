@@ -8,14 +8,40 @@ use App\Facades\FinTsFacade;
 use App\Helpers\MessageHelper;
 use App\Helpers\YamlConfigurationHelper;
 use App\Services\SessionService;
+use Fhp\CurlException;
+use Fhp\Protocol\ServerException;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Session;
 
 class ImportController extends Controller
 {
+    public function getDetails() {
+        return view('getDetails');
+    }
+
+    public function saveDetails(Request $request) {
+        $request->validate([
+            'bank_url' => 'required',
+            'bank_code' => 'required|numeric',
+            'bank_iban' => 'required|alpha_num',
+            'username' => 'required',
+            'password' => 'required',
+            'tan_mode' => 'required|numeric',
+            'budget_id' => 'required',
+            'account_id' => 'required'
+        ]);
+
+        SessionService::putCurrentAccount($request->all());
+
+        return FinTsFacade::login($request->all());
+    }
+
     /**
      * @param string $accountHash
-     * @return RedirectResponse
+     * @return RedirectResponse|mixed
+     * @throws CurlException
+     * @throws ServerException
      */
     public function startImportFromPreset(string $accountHash)
     {

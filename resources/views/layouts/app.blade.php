@@ -14,9 +14,9 @@
         <link href="{{ mix('css/app.css') }}" rel="stylesheet">
         <link rel="stylesheet" href="https://rsms.me/inter/inter.css">
     </head>
-    <body class="bg-gray-100 h-screen antialiased leading-none">
+    <body class="bg-gray-100 antialiased leading-none">
         <div class="container mx-auto flex items-center justify-center flex-col h-full self-center">
-            <div class="flex justify-center p-4 w-3/4">
+            <div class="flex justify-center p-4 w-3/4 m-6">
                 <h1 class="text-4xl text-center">YNAB FinTs Importer</h1>
             </div>
 
@@ -24,7 +24,7 @@
                 @yield('content')
             </div>
 
-            <footer class="flex flex-row justify-center absolute bottom-0 p-4">
+            <footer class="flex flex-row justify-center bottom-0 p-4">
                 <a class="m-4" href="https://github.com/lukkigi" target="_blank">GitHub</a>
             </footer>
         </div>

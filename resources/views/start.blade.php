@@ -27,7 +27,7 @@
     @endif
 
     <div class="flex w-full flex-row">
-        <div class="flex flex-col justify-center">
+        <div class="flex flex-col w-full justify-center">
             @if ($accounts ?? null && count($accounts) > 0)
                 <p class="text-lg m-8">Which account do you want to import?</p>
 
@@ -40,7 +40,7 @@
             @endif
 
             <a class="shadow bg-teal-400 hover:bg-teal-300 focus:shadow-outline focus:outline-none text-white font-bold m-2 py-2 px-4 rounded text-center self-center w-56"
-               href="/start/details">
+               href="/import/getDetails">
                 Start without preset
             </a>
         </div>
