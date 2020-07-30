@@ -20,10 +20,15 @@ class YnabHelper
 
         $ynabTransactions = [];
 
+        /* banks send these transactions differently sometimes - this is a dirty fix */
+        if (count($transactions) == 1 && is_array($transactions[0])) {
+            $transactions = $transactions[0];
+        }
+
         for ($i = 0; $i < count($transactions); $i++) {
             $transaction = $transactions[$i];
 
-            /* banks send these transactions differently sometimes - this is a dirty fix */
+            /* same as above */
             if (is_array($transaction)) {
                 $transaction = $transaction[0];
             }

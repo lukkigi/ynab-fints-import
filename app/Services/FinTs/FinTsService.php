@@ -5,115 +5,174 @@ namespace App\Services\FinTs;
 use App\Constants\AppConstants;
 use App\Constants\ErrorConstants;
 use App\Helpers\FinTsHelper;
-use App\Helpers\MessageHelper;
-use App\Services\SessionService;
 use DateInterval;
 use DateTime;
 use Exception;
 use Fhp\Action\GetSEPAAccounts;
 use Fhp\Action\GetStatementOfAccount;
-use Fhp\BaseAction;
 use Fhp\CurlException;
 use Fhp\FinTsNew;
+use Fhp\Model\NoPsd2TanMode;
 use Fhp\Model\SEPAAccount;
+use Fhp\Model\TanMedium;
+use Fhp\Model\TanMode;
 use Fhp\Protocol\ServerException;
-use Illuminate\Http\RedirectResponse;
-use Illuminate\Support\Facades\Redirect;
-use Illuminate\Support\Facades\Session;
+use Illuminate\Support\Facades\Config;
 
 class FinTsService
 {
     /**
-     * @param string $accountIban
-     * @return RedirectResponse
-     * @throws Exception
+     * @param array $configurationAccount
+     * @return array|string[]
+     * @throws CurlException
+     * @throws ServerException
      */
-    public static function setupFetchAccounts(string $accountIban)
-    {
-        if (SessionService::isTanActionPresent()) {
-            /* we still have an open TAN request if this is true */
-            return Redirect::route(AppConstants::$ROUTE_ENTER_TAN);
+    public static function login(array $configurationAccount) {
+        $productName = Config::get(AppConstants::$ENV_PRODUCT_NAME);
+        $productVersion = Config::get(AppConstants::$ENV_PRODUCT_VERSION);
+
+        if ($productName == null || empty($productName) || $productVersion == null || empty($productVersion)) {
+            return [
+                ErrorConstants::$ERROR_MESSAGE => ErrorConstants::$CHECK_PRODUCT_KEYS
+            ];
         }
 
-        /** @var \Fhp\FinTsNew $authenticatedFinTsObject */
-        $authenticatedFinTsObject = SessionService::getFinTsObject();
+        $finTsObject = FinTsHelper::createFinTsObject($configurationAccount[AppConstants::$CONFIG_BANK_URL],
+            $configurationAccount[AppConstants::$CONFIG_BANK_CODE], $configurationAccount[AppConstants::$CONFIG_USERNAME],
+            $configurationAccount[AppConstants::$CONFIG_PASSWORD], $productName, $productVersion
+        );
 
-        if ($authenticatedFinTsObject == null) {
-            return MessageHelper::redirectToErrorMessage(ErrorConstants::$SESSION_NO_FINTS_OBJECT);
+        if ($configurationAccount[AppConstants::$CONFIG_TAN_MODE] == '-1') {
+            $tanMode = new NoPsd2TanMode();
+        } else {
+            // TODO: check value first
+
+            $tanMode = $finTsObject->getTanModes()[intval($configurationAccount[AppConstants::$CONFIG_TAN_MODE])];
         }
 
-        $getSepaAccountsAction = new GetSEPAAccounts();
-
-        try {
-            $authenticatedFinTsObject->execute($getSepaAccountsAction);
-        } catch (CurlException | ServerException $e) {
-            return MessageHelper::redirectToErrorMessage('setupFetchAccounts: ' . ErrorConstants::$FINTS_BANK_COMMUNICATION);
+        if ($tanMode->needsTanMedium()) {
+            return [
+                AppConstants::$SESSION_FINTS_OBJECT => $finTsObject,
+                AppConstants::$SESSION_TAN_MODE => $tanMode,
+                AppConstants::$SESSION_AVAILABLE_TAN_MEDIA => $finTsObject->getTanMedia($tanMode)
+            ];
         }
 
-        SessionService::putFinTsObject($authenticatedFinTsObject);
-
-        if ($getSepaAccountsAction->needsTan()) {
-            SessionService::putTanAction($getSepaAccountsAction);
-
-            return Redirect::route(AppConstants::$ROUTE_ENTER_TAN);
-        }
-
-        /* no TAN needed, so we can directly fetch the accounts */
-        return self::fetchAccounts($accountIban, $getSepaAccountsAction);
+        return self::setUpTanAndLogin($finTsObject, $tanMode, $configurationAccount, null);
     }
 
     /**
-     * @param string $accountIban
-     * @param GetSEPAAccounts|null $getSepaAccountsAction
-     * @return RedirectResponse
+     * @param FinTsNew $finTsObject
+     * @param TanMode $tanMode
+     * @param array $configurationAccount
+     * @param TanMedium|null $tanMedium
+     * @return array|string[]
      * @throws Exception
      */
-    public static function fetchAccounts(string $accountIban, GetSEPAAccounts $getSepaAccountsAction = null)
+    public static function setUpTanAndLogin(FinTsNew $finTsObject, TanMode $tanMode, array $configurationAccount, TanMedium $tanMedium = null) {
+        if ($finTsObject == null || $tanMode == null || $configurationAccount == null) {
+            return [
+                ErrorConstants::$ERROR_MESSAGE => 'setUpTanAndLogin ' . ErrorConstants::$GENERIC_METHOD_ERROR
+            ];
+        }
+
+        $finTsObject->selectTanMode($tanMode, $tanMedium);
+
+        try {
+            $loginRequest = $finTsObject->login();
+        } catch (CurlException | ServerException $exception) {
+            return [
+                ErrorConstants::$ERROR_MESSAGE => ErrorConstants::$FINTS_BANK_COMMUNICATION
+            ];
+        }
+
+        if ($loginRequest->needsTan()) {
+            return [
+                AppConstants::$SESSION_FINTS_OBJECT => $finTsObject,
+                AppConstants::$SESSION_TAN_ACTION => $loginRequest
+            ];
+        }
+
+        return self::setupFetchAccounts($finTsObject, $configurationAccount[AppConstants::$CONFIG_BANK_IBAN]);
+    }
+
+    /**
+     * @param FinTsNew $finTsObject
+     * @param string $accountIban
+     * @return array|string[]
+     * @throws Exception
+     */
+    public static function setupFetchAccounts(FinTsNew $finTsObject, string $accountIban)
     {
-        if (SessionService::isTanActionPresent()) {
-            /** @var BaseAction $tanAction */
-            $tanAction = SessionService::getTanAction();
+        $getSepaAccountsAction = new GetSEPAAccounts();
 
-            if (!$tanAction instanceof GetSEPAAccounts) {
-                return MessageHelper::redirectToErrorMessage(ErrorConstants::$FINTS_TAN_ACTION_WRONG_TYPE);
-            }
-
-            $getSepaAccountsAction = $tanAction;
+        try {
+            $finTsObject->execute($getSepaAccountsAction);
+        } catch (CurlException | ServerException $e) {
+            return [
+                'errorMessage' => ErrorConstants::$FINTS_BANK_COMMUNICATION
+            ];
         }
 
-        SessionService::removeTanAction();
-
-        if ($getSepaAccountsAction == null) {
-            return MessageHelper::redirectToErrorMessage('fetchAccounts: ' . ErrorConstants::$FINTS_BANK_COMMUNICATION);
+        if ($getSepaAccountsAction->needsTan()) {
+            return [
+                'finTsObject' => $finTsObject,
+                'tanAction' => $getSepaAccountsAction,
+                'errorMessage' => null
+            ];
         }
 
-        if (!$getSepaAccountsAction->isSuccess()) {
-            return MessageHelper::redirectToErrorMessage('fetchAccounts (no success): ' . ErrorConstants::$FINTS_BANK_COMMUNICATION);
+        /* no TAN needed, so we can directly fetch the accounts */
+        return self::fetchAccounts($finTsObject, $accountIban, $getSepaAccountsAction);
+    }
+
+    /**
+     * @param FinTsNew $finTsObject
+     * @param string $accountIban
+     * @param GetSEPAAccounts|null $getSepaAccountsAction
+     * @return array|string[]
+     * @throws Exception
+     */
+    public static function fetchAccounts(FinTsNew $finTsObject, string $accountIban, GetSEPAAccounts $getSepaAccountsAction = null)
+    {
+        if ($finTsObject == null || $accountIban == null || $getSepaAccountsAction == null) {
+            return [
+                ErrorConstants::$ERROR_MESSAGE => 'fetchAccounts ' . ErrorConstants::$GENERIC_METHOD_ERROR
+            ];
+        }
+
+        if ($getSepaAccountsAction == null || !$getSepaAccountsAction->isSuccess()) {
+            return [
+                ErrorConstants::$ERROR_MESSAGE => ErrorConstants::$FINTS_BANK_COMMUNICATION
+            ];
         }
 
         $sepaAccounts = $getSepaAccountsAction->getAccounts();
         $sepaAccountToUse = FinTsHelper::findAccountWithIban($sepaAccounts, $accountIban);
 
         if ($sepaAccountToUse == null) {
-            return MessageHelper::redirectToErrorMessage(ErrorConstants::$FINTS_NO_ACCOUNT_WITH_DESIRED_IBAN);
+            return [
+                ErrorConstants::$ERROR_MESSAGE => ErrorConstants::$FINTS_NO_ACCOUNT_WITH_DESIRED_IBAN
+            ];
         }
 
-        SessionService::putSepaAccount($sepaAccountToUse);
-
-        return Redirect::route(AppConstants::$ROUTE_FETCH_TRANSACTIONS);
+        return self::setupFetchTransactions($finTsObject, $sepaAccountToUse);
     }
 
     /**
+     * @param FinTsNew $finTsObject
      * @param SEPAAccount $account
      * @param DateTime|null $timeFrom
      * @param DateTime|null $timeTo
-     * @return RedirectResponse
-     * @throws ServerException
+     * @return array
+     * @throws Exception
      */
-    public static function setupFetchTransactions(SEPAAccount $account, DateTime $timeFrom = null, DateTime $timeTo = null)
+    public static function setupFetchTransactions(FinTsNew $finTsObject, SEPAAccount $account, DateTime $timeFrom = null, DateTime $timeTo = null)
     {
         if ($account == null) {
-            return MessageHelper::redirectToErrorMessage(ErrorConstants::$SESSION_NO_SEPA_ACCOUNT);
+            return [
+                ErrorConstants::$ERROR_MESSAGE => ErrorConstants::$SESSION_NO_SEPA_ACCOUNT
+            ];
         }
 
         if ($timeFrom == null) {
@@ -124,94 +183,67 @@ class FinTsService
             $timeTo = new DateTime();
         }
 
-        /** @var \Fhp\FinTsNew $authenticatedFinTsObject */
-        $authenticatedFinTsObject = SessionService::getFinTsObject();
-
         $getStatementAction = GetStatementOfAccount::create($account, $timeFrom, $timeTo);
 
         try {
-            $authenticatedFinTsObject->execute($getStatementAction);
+            $finTsObject->execute($getStatementAction);
         } catch (CurlException | ServerException $e) {
-            return MessageHelper::redirectToErrorMessage('setupFetchTransactions: ' . ErrorConstants::$FINTS_BANK_COMMUNICATION);
+            return [
+                ErrorConstants::$ERROR_MESSAGE => ErrorConstants::$FINTS_BANK_COMMUNICATION
+            ];
         }
 
-        SessionService::putFinTsObject($authenticatedFinTsObject);
-
         if ($getStatementAction->needsTan()) {
-            SessionService::putTanAction($getStatementAction);
-
-            return Redirect::route(AppConstants::$ROUTE_ENTER_TAN);
+            return [
+                AppConstants::$SESSION_FINTS_OBJECT => $finTsObject,
+                AppConstants::$SESSION_TAN_ACTION => $getStatementAction
+            ];
         }
 
         /* no TAN needed, so we can directly fetch the accounts */
-        return self::fetchTransactions($getStatementAction);
+        return self::fetchTransactions($finTsObject, $getStatementAction);
     }
 
     /**
+     * @param FinTsNew $finTsObject
      * @param GetStatementOfAccount|null $getStatementAction
-     * @return RedirectResponse
-     * @throws ServerException
+     * @return array
+     * @throws Exception
      */
-    public static function fetchTransactions(GetStatementOfAccount $getStatementAction = null)
+    public static function fetchTransactions(FinTsNew $finTsObject, GetStatementOfAccount $getStatementAction = null)
     {
-        if (SessionService::isTanActionPresent()) {
-            /** @var BaseAction $tanAction */
-            $tanAction = SessionService::getTanAction();
-
-            if (!$tanAction instanceof GetStatementOfAccount) {
-                return MessageHelper::redirectToErrorMessage(ErrorConstants::$FINTS_TAN_ACTION_WRONG_TYPE);
-            }
-
-            $getStatementAction = $tanAction;
-        }
-
-        SessionService::removeTanAction();
-
         if ($getStatementAction == null || !$getStatementAction->isSuccess()) {
-            return MessageHelper::redirectToErrorMessage('fetchTransactions: ' . ErrorConstants::$FINTS_BANK_COMMUNICATION);
+            return [
+                ErrorConstants::$ERROR_MESSAGE => ErrorConstants::$FINTS_BANK_COMMUNICATION
+            ];
         }
 
         $statementOfAccount = $getStatementAction->getStatement();
         $statementOfAccountStatements = $statementOfAccount->getStatements();
 
         if (empty($statementOfAccountStatements)) {
-            return MessageHelper::redirectToErrorMessage(ErrorConstants::$FINTS_TRANSACTIONS_EMPTY);
+            return [
+                ErrorConstants::$ERROR_MESSAGE => ErrorConstants::$FINTS_TRANSACTIONS_EMPTY
+            ];
         }
 
-        SessionService::putBankStatements($statementOfAccountStatements);
-
-        /* we have everything we need from the bank at this point */
-        self::closeFinTsSession();
-
-        return Redirect::route(AppConstants::$ROUTE_START_IMPORT);
+        return [
+            AppConstants::$SESSION_FINTS_OBJECT => $finTsObject,
+            AppConstants::$SESSION_BANK_STATEMENTS => $statementOfAccountStatements
+        ];
     }
 
     /**
      * Logout of the FinTs session
+     * @param FinTsNew $finTsObject
      * @throws ServerException
      */
-    public static function closeFinTsSession()
+    public static function closeFinTsSession(FinTsNew $finTsObject)
     {
-        if (!SessionService::isFinTsObjectPresent()) {
+        if ($finTsObject == null) {
             return;
         }
 
-        /** @var FinTsNew $finTsObject */
-        $finTsObject = SessionService::getFinTsObject();
         $finTsObject->close();
-
-        self::clearSessionOfFinTsValues();
-    }
-
-    /**
-     * Remove every session value relating to FinTs stuff
-     */
-    public static function clearSessionOfFinTsValues() {
-        Session::remove(AppConstants::$SESSION_FINTS_OBJECT);
-        Session::remove(AppConstants::$SESSION_TAN_ACTION);
-        Session::remove(AppConstants::$SESSION_TAN_MEDIUM);
-        Session::remove(AppConstants::$SESSION_TAN_MODE);
-        Session::remove(AppConstants::$SESSION_AVAILABLE_TAN_MEDIA);
-        Session::remove(AppConstants::$SESSION_SEPA_ACCOUNT);
     }
 }

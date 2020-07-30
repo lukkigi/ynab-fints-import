@@ -18,7 +18,7 @@ Route::get('/', 'StartController@start')->name('start');
 Route::get('import/start', 'ImportController@startImport')->name('startImport');
 Route::get('import/{accountHash}', 'ImportController@startImportFromPreset')->name('importHash');
 
-Route::get('fints/login', 'FinTsController@startLogin')->name('startLogin');
+Route::get('fints/login', 'FinTsController@login')->name('startLogin');
 Route::get('fints/accounts', 'FinTsController@fetchAccounts')->name('fetchAccounts');
 Route::get('fints/transactions', 'FinTsController@fetchTransactions')->name('fetchTransactions');
 Route::get('fints/tan', 'TanController@handleTanRequest')->name('enterTan');

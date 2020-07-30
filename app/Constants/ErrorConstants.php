@@ -6,6 +6,9 @@ class ErrorConstants
 {
     public static $ERROR_MESSAGE = 'errorMessage';
 
+    public static $GENERIC_METHOD_ERROR = 'An argument for the method was unexpectedly null';
+    public static $GENERAL_ERROR = 'Something went wrong while running the application';
+
     public static $SESSION_ACCOUNT_CONFIGURATION = 'Could not get the current account configuration from the session';
     public static $SESSION_NO_AVAILABLE_TAN_MEDIA = 'Could not read the available TAN media from the session';
     public static $SESSION_NO_TAN_ACTION = 'Could not get the action which needs a TAN';
