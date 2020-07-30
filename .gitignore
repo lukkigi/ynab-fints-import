@@ -10,7 +10,7 @@ Homestead.json
 Homestead.yaml
 npm-debug.log
 yarn-error.log
-public/configuration.yaml
+configuration.yaml
 
 # Created by https://www.toptal.com/developers/gitignore/api/laravel,macos,intellij+all
 # Edit at https://www.toptal.com/developers/gitignore?templates=laravel,macos,intellij+all

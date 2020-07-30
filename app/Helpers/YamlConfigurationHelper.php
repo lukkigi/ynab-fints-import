@@ -3,13 +3,12 @@
 namespace App\Helpers;
 
 use App\Constants\AppConstants;
+use Illuminate\Support\Facades\Config;
 use Symfony\Component\Yaml\Exception\ParseException;
 use Symfony\Component\Yaml\Yaml;
 
 class YamlConfigurationHelper
 {
-    private static $FILENAME = '/configuration.yaml';
-
     /**
      * @return mixed|null
      */
@@ -18,7 +17,7 @@ class YamlConfigurationHelper
         // TODO: write yaml value checks
 
         try {
-            return Yaml::parseFile(getcwd() . self::$FILENAME);
+            return Yaml::parseFile(Config::get('app.configuration_file'));
         } catch (ParseException $parseException) {
             return null;
         }

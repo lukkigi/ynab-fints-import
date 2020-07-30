@@ -6,7 +6,6 @@ use App\Constants\AppConstants;
 use Fhp\BaseAction;
 use Fhp\FinTsNew;
 use Fhp\Model\SEPAAccount;
-use Fhp\Model\StatementOfAccount\Statement;
 use Fhp\Model\TanMedium;
 use Fhp\Model\TanMode;
 use Illuminate\Support\Facades\Session;

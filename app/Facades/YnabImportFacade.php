@@ -15,14 +15,15 @@ class YnabImportFacade
      * @param array $bankStatements
      * @return mixed
      */
-    public static function importBankStatements(array $bankStatements)
+    public static function importBankStatements(array $bankStatements, array $accountConfiguration = null)
     {
-        if (!SessionService::isCurrentAccountPresent()) {
-            return MessageHelper::redirectToErrorMessage(ErrorConstants::$SESSION_ACCOUNT_CONFIGURATION);
-        }
+        if ($accountConfiguration == null) {
+            if (!SessionService::isCurrentAccountPresent()) {
+                return MessageHelper::redirectToErrorMessage(ErrorConstants::$SESSION_ACCOUNT_CONFIGURATION);
+            }
 
-        /** @var array $currentConfigurationAccount */
-        $accountConfiguration = SessionService::getCurrentAccount();
+            $accountConfiguration = SessionService::getCurrentAccount();
+        }
 
         $createTransactionsResponse = YnabImportService::importBankStatements($bankStatements, $accountConfiguration);
 
