@@ -28,24 +28,14 @@ class YnabHelper
         for ($i = 0; $i < count($transactions); $i++) {
             $transaction = $transactions[$i];
 
-            /* same as above */
+            /* some banks group transactions together by date */
             if (is_array($transaction)) {
-                $transaction = $transaction[0];
+                for ($j = 0; $j < count($transaction); $j++) {
+                    $ynabTransactions[] = self::createYnabTransactionFromFinTsTransaction($transaction[$j], $accountId, $payees);
+                }
+            } else {
+                $ynabTransactions[] = self::createYnabTransactionFromFinTsTransaction($transaction, $accountId, $payees);
             }
-
-            $amountPrefix = $transaction->getCreditDebit() == 'credit' ? 1 : -1;
-
-            $ynabTransactions[] = [
-                'account_id' => $accountId,
-                'date' => $transaction->getValutaDate()->format('Y-m-d'),
-                'amount' => intval($transaction->getAmount() * $amountPrefix * 1000),
-                'payee_id' => YnabHelper::findPayeeIdByName($payees, $transaction->getName()),
-                'payee_name' => substr($transaction->getName(), 0, 50),
-                'category_id' => null,
-                'memo' => substr($transaction->getBookingText() . ' / ' . $transaction->getDescription1(), 0, 200),
-                'cleared' => 'cleared',
-                'import_id' => md5($transaction->getName() . $transaction->getValutaDate()->format(DateTimeInterface::ATOM) . $transaction->getDescription1())
-            ];
         }
 
         return $ynabTransactions;
@@ -69,5 +59,21 @@ class YnabHelper
         }
 
         return null;
+    }
+
+    private static function createYnabTransactionFromFinTsTransaction($transaction, $accountId, $payees) {
+        $amountPrefix = $transaction->getCreditDebit() == 'credit' ? 1 : -1;
+
+        return [
+            'account_id' => $accountId,
+            'date' => $transaction->getValutaDate()->format('Y-m-d'),
+            'amount' => intval($transaction->getAmount() * $amountPrefix * 1000),
+            'payee_id' => YnabHelper::findPayeeIdByName($payees, $transaction->getName()),
+            'payee_name' => substr($transaction->getName(), 0, 50),
+            'category_id' => null,
+            'memo' => substr($transaction->getBookingText() . ' / ' . $transaction->getDescription1(), 0, 200),
+            'cleared' => 'cleared',
+            'import_id' => md5($transaction->getName() . $transaction->getValutaDate()->format(DateTimeInterface::ATOM) . $transaction->getDescription1())
+        ];
     }
 }
