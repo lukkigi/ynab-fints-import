@@ -23,6 +23,8 @@ use Illuminate\Support\Facades\Session;
 class FinTsFacade
 {
     /**
+     * Tries to login with the specified account configuration
+     *
      * @param array|null $configurationAccount
      * @return RedirectResponse|mixed
      * @throws CurlException
@@ -50,6 +52,8 @@ class FinTsFacade
     }
 
     /**
+     * Gets all possible accounts registered to that bank account
+     *
      * @return RedirectResponse|mixed
      * @throws Exception
      */
@@ -86,6 +90,8 @@ class FinTsFacade
     }
 
     /**
+     * Fetches all transactions from the given timeframe and account
+     *
      * @return RedirectResponse|mixed
      * @throws Exception
      */
@@ -115,6 +121,8 @@ class FinTsFacade
     }
 
     /**
+     * Checks the result from other functions and handles them accordingly
+     *
      * @param $result
      * @return RedirectResponse|mixed
      * @throws ServerException
