@@ -1,4 +1,7 @@
 {
+    "name": "ynab-fints-import",
+    "description": "FinTs Importer for YNAB",
+    "version": "1.0",
     "private": true,
     "scripts": {
         "dev": "npm run development",
