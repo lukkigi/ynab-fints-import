@@ -5,4 +5,4 @@ services:
     build: .
     container_name: ynab-fints-app
     ports:
-      - 8000:8000
+      - 8000
