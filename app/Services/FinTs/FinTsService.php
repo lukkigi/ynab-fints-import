@@ -236,7 +236,6 @@ class FinTsService
     /**
      * Logout of the FinTs session
      * @param FinTsNew $finTsObject
-     * @throws ServerException
      */
     public static function closeFinTsSession(FinTsNew $finTsObject)
     {
@@ -244,6 +243,10 @@ class FinTsService
             return;
         }
 
-        $finTsObject->close();
+        try {
+            $finTsObject->close();
+        } catch (Exception $exception) {
+            return;
+        }
     }
 }
