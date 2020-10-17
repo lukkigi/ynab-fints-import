@@ -113,7 +113,7 @@ class TanController
             return MessageHelper::redirectToErrorMessage(ErrorConstants::$REQUEST_MISSING_TAN_CODE);
         }
 
-        if (SessionService::isTanActionPresent()) {
+        if (!SessionService::isTanActionPresent()) {
             return MessageHelper::redirectToErrorMessage(ErrorConstants::$SESSION_NO_TAN_ACTION);
         }
 
